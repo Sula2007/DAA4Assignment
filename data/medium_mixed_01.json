@@ -1,0 +1,41 @@
+{
+  "vertices": 16,
+  "edges": [
+    {"from": 0, "to": 1, "weight": 2},
+    {"from": 0, "to": 2, "weight": 3},
+    {"from": 1, "to": 3, "weight": 4},
+    {"from": 2, "to": 3, "weight": 2},
+    {"from": 3, "to": 4, "weight": 3},
+    {"from": 4, "to": 5, "weight": 2},
+    {"from": 5, "to": 6, "weight": 4},
+    {"from": 6, "to": 4, "weight": 1},
+    {"from": 5, "to": 7, "weight": 5},
+    {"from": 7, "to": 8, "weight": 2},
+    {"from": 8, "to": 9, "weight": 3},
+    {"from": 9, "to": 7, "weight": 1},
+    {"from": 8, "to": 10, "weight": 4},
+    {"from": 10, "to": 11, "weight": 2},
+    {"from": 11, "to": 12, "weight": 3},
+    {"from": 12, "to": 13, "weight": 2},
+    {"from": 13, "to": 14, "weight": 4},
+    {"from": 14, "to": 15, "weight": 3}
+  ],
+  "labels": {
+    "0": "Root",
+    "1": "PathA",
+    "2": "PathB",
+    "3": "Converge",
+    "4": "LoopX1",
+    "5": "LoopX2",
+    "6": "LoopX3",
+    "7": "LoopY1",
+    "8": "LoopY2",
+    "9": "LoopY3",
+    "10": "Exit",
+    "11": "Stage1",
+    "12": "Stage2",
+    "13": "Stage3",
+    "14": "Stage4",
+    "15": "Final"
+  }
+}
