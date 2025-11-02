@@ -1,0 +1,25 @@
+{
+  "vertices": 8,
+  "edges": [
+    {"from": 0, "to": 1, "weight": 3},
+    {"from": 1, "to": 2, "weight": 2},
+    {"from": 2, "to": 1, "weight": 1},
+    {"from": 0, "to": 3, "weight": 4},
+    {"from": 3, "to": 4, "weight": 2},
+    {"from": 4, "to": 3, "weight": 1},
+    {"from": 2, "to": 5, "weight": 5},
+    {"from": 4, "to": 5, "weight": 3},
+    {"from": 5, "to": 6, "weight": 2},
+    {"from": 6, "to": 7, "weight": 4}
+  ],
+  "labels": {
+    "0": "Start",
+    "1": "ModuleA1",
+    "2": "ModuleA2",
+    "3": "ModuleB1",
+    "4": "ModuleB2",
+    "5": "Merge",
+    "6": "Deploy",
+    "7": "Finish"
+  }
+}
