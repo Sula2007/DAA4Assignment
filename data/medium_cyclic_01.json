@@ -1,0 +1,37 @@
+{
+  "vertices": 14,
+  "edges": [
+    {"from": 0, "to": 1, "weight": 3},
+    {"from": 1, "to": 2, "weight": 2},
+    {"from": 2, "to": 3, "weight": 4},
+    {"from": 3, "to": 1, "weight": 1},
+    {"from": 3, "to": 4, "weight": 3},
+    {"from": 4, "to": 5, "weight": 2},
+    {"from": 5, "to": 6, "weight": 3},
+    {"from": 6, "to": 4, "weight": 1},
+    {"from": 6, "to": 7, "weight": 4},
+    {"from": 7, "to": 8, "weight": 2},
+    {"from": 8, "to": 9, "weight": 3},
+    {"from": 9, "to": 10, "weight": 2},
+    {"from": 10, "to": 8, "weight": 1},
+    {"from": 10, "to": 11, "weight": 5},
+    {"from": 11, "to": 12, "weight": 3},
+    {"from": 12, "to": 13, "weight": 2}
+  ],
+  "labels": {
+    "0": "Init",
+    "1": "CycleA1",
+    "2": "CycleA2",
+    "3": "CycleA3",
+    "4": "CycleB1",
+    "5": "CycleB2",
+    "6": "CycleB3",
+    "7": "Bridge",
+    "8": "CycleC1",
+    "9": "CycleC2",
+    "10": "CycleC3",
+    "11": "Process",
+    "12": "Finalize",
+    "13": "Complete"
+  }
+}
