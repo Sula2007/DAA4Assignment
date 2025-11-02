@@ -1,0 +1,695 @@
+// ===================================================================
+// ASSIGNMENT 4: Smart City Scheduling System
+// Student: Moldash Sultan
+// Date: November 2, 2025
+// Topics: SCC, Topological Sort, Shortest Paths in DAGs
+// ===================================================================
+
+// ===================================================================
+// FILE: src/main/java/graph/common/Metrics.java
+// Interface for tracking algorithm performance
+// ===================================================================
+package graph.common;
+
+public interface Metrics {
+    void reset();
+    void recordOperation(String operationType);
+    void startTimer();
+    void stopTimer();
+    long getOperationCount(String operationType);
+    long getElapsedNanos();
+    void printSummary();
+}
+
+// ===================================================================
+// FILE: src/main/java/graph/common/MetricsImpl.java
+// Implementation of metrics tracking
+// ===================================================================
+package graph.common;
+
+import java.util.HashMap;
+import java.util.Map;
+
+public class MetricsImpl implements Metrics {
+    private final Map<String, Long> operationCounts;
+    private long startTime;
+    private long elapsedNanos;
+    
+    public MetricsImpl() {
+        this.operationCounts = new HashMap<>();
+        this.elapsedNanos = 0;
+    }
+    
+    @Override
+    public void reset() {
+        operationCounts.clear();
+        elapsedNanos = 0;
+    }
+    
+    @Override
+    public void recordOperation(String operationType) {
+        operationCounts.merge(operationType, 1L, Long::sum);
+    }
+    
+    @Override
+    public void startTimer() {
+        startTime = System.nanoTime();
+    }
+    
+    @Override
+    public void stopTimer() {
+        elapsedNanos = System.nanoTime() - startTime;
+    }
+    
+    @Override
+    public long getOperationCount(String operationType) {
+        return operationCounts.getOrDefault(operationType, 0L);
+    }
+    
+    @Override
+    public long getElapsedNanos() {
+        return elapsedNanos;
+    }
+    
+    @Override
+    public void printSummary() {
+        System.out.println("\n=== Metrics Summary ===");
+        System.out.printf("Elapsed Time: %.3f ms%n", elapsedNanos / 1_000_000.0);
+        operationCounts.forEach((op, count) -> 
+            System.out.printf("%s: %d%n", op, count));
+    }
+}
+
+// ===================================================================
+// FILE: src/main/java/graph/common/Graph.java
+// Graph data structure
+// ===================================================================
+package graph.common;
+
+import java.util.*;
+
+public class Graph {
+    private final int vertices;
+    private final Map<Integer, List<Edge>> adjList;
+    private final Map<String, Integer> taskNameToId;
+    private final Map<Integer, String> idToTaskName;
+    
+    public static class Edge {
+        public final int to;
+        public final int weight;
+        
+        public Edge(int to, int weight) {
+            this.to = to;
+            this.weight = weight;
+        }
+    }
+    
+    public Graph(int vertices) {
+        this.vertices = vertices;
+        this.adjList = new HashMap<>();
+        this.taskNameToId = new HashMap<>();
+        this.idToTaskName = new HashMap<>();
+        for (int i = 0; i < vertices; i++) {
+            adjList.put(i, new ArrayList<>());
+        }
+    }
+    
+    public void addEdge(int from, int to, int weight) {
+        adjList.get(from).add(new Edge(to, weight));
+    }
+    
+    public void setTaskName(int id, String name) {
+        taskNameToId.put(name, id);
+        idToTaskName.put(id, name);
+    }
+    
+    public String getTaskName(int id) {
+        return idToTaskName.getOrDefault(id, "Task-" + id);
+    }
+    
+    public int getVertices() {
+        return vertices;
+    }
+    
+    public List<Edge> getAdjacent(int vertex) {
+        return adjList.get(vertex);
+    }
+    
+    public int getEdgeCount() {
+        return adjList.values().stream().mapToInt(List::size).sum();
+    }
+}
+
+// ===================================================================
+// FILE: src/main/java/graph/scc/TarjanSCC.java
+// Tarjan's Algorithm for Strongly Connected Components
+// ===================================================================
+package graph.scc;
+
+import graph.common.Graph;
+import graph.common.Metrics;
+import java.util.*;
+
+/**
+ * Tarjan's algorithm for finding strongly connected components.
+ * Time Complexity: O(V + E)
+ * Space Complexity: O(V)
+ */
+public class TarjanSCC {
+    private final Graph graph;
+    private final Metrics metrics;
+    
+    private int[] ids;
+    private int[] low;
+    private boolean[] onStack;
+    private Stack<Integer> stack;
+    private List<List<Integer>> sccs;
+    private int id;
+    
+    public TarjanSCC(Graph graph, Metrics metrics) {
+        this.graph = graph;
+        this.metrics = metrics;
+    }
+    
+    /**
+     * Find all strongly connected components in the graph.
+     * @return List of SCCs, each SCC is a list of vertex IDs
+     */
+    public List<List<Integer>> findSCCs() {
+        int n = graph.getVertices();
+        ids = new int[n];
+        low = new int[n];
+        onStack = new boolean[n];
+        stack = new Stack<>();
+        sccs = new ArrayList<>();
+        id = 0;
+        
+        Arrays.fill(ids, -1);
+        
+        metrics.reset();
+        metrics.startTimer();
+        
+        for (int i = 0; i < n; i++) {
+            if (ids[i] == -1) {
+                dfs(i);
+            }
+        }
+        
+        metrics.stopTimer();
+        
+        return sccs;
+    }
+    
+    private void dfs(int at) {
+        metrics.recordOperation("DFS_VISIT");
+        
+        ids[at] = low[at] = id++;
+        stack.push(at);
+        onStack[at] = true;
+        
+        for (Graph.Edge edge : graph.getAdjacent(at)) {
+            metrics.recordOperation("EDGE_TRAVERSAL");
+            
+            if (ids[edge.to] == -1) {
+                dfs(edge.to);
+            }
+            if (onStack[edge.to]) {
+                low[at] = Math.min(low[at], low[edge.to]);
+            }
+        }
+        
+        // Found SCC root
+        if (ids[at] == low[at]) {
+            List<Integer> scc = new ArrayList<>();
+            while (true) {
+                int node = stack.pop();
+                onStack[node] = false;
+                scc.add(node);
+                if (node == at) break;
+            }
+            sccs.add(scc);
+            metrics.recordOperation("SCC_FOUND");
+        }
+    }
+    
+    /**
+     * Build condensation graph (DAG of SCCs).
+     * @param sccs List of strongly connected components
+     * @return Condensation graph where each node represents an SCC
+     */
+    public Graph buildCondensationGraph(List<List<Integer>> sccs) {
+        // Map original vertex to its SCC index
+        Map<Integer, Integer> vertexToSCC = new HashMap<>();
+        for (int i = 0; i < sccs.size(); i++) {
+            for (int vertex : sccs.get(i)) {
+                vertexToSCC.put(vertex, i);
+            }
+        }
+        
+        Graph condensation = new Graph(sccs.size());
+        Set<String> addedEdges = new HashSet<>();
+        
+        for (int i = 0; i < sccs.size(); i++) {
+            for (int vertex : sccs.get(i)) {
+                for (Graph.Edge edge : graph.getAdjacent(vertex)) {
+                    int fromSCC = i;
+                    int toSCC = vertexToSCC.get(edge.to);
+                    
+                    if (fromSCC != toSCC) {
+                        String edgeKey = fromSCC + "->" + toSCC;
+                        if (!addedEdges.contains(edgeKey)) {
+                            condensation.addEdge(fromSCC, toSCC, edge.weight);
+                            addedEdges.add(edgeKey);
+                        }
+                    }
+                }
+            }
+            condensation.setTaskName(i, "SCC-" + i);
+        }
+        
+        return condensation;
+    }
+}
+
+// ===================================================================
+// FILE: src/main/java/graph/topo/TopologicalSort.java
+// Topological sorting algorithms (Kahn's and DFS)
+// ===================================================================
+package graph.topo;
+
+import graph.common.Graph;
+import graph.common.Metrics;
+import java.util.*;
+
+/**
+ * Topological sorting for DAGs.
+ * Implements both Kahn's algorithm (BFS) and DFS-based approach.
+ */
+public class TopologicalSort {
+    private final Graph graph;
+    private final Metrics metrics;
+    
+    public TopologicalSort(Graph graph, Metrics metrics) {
+        this.graph = graph;
+        this.metrics = metrics;
+    }
+    
+    /**
+     * Kahn's algorithm - BFS based topological sort.
+     * Time Complexity: O(V + E)
+     */
+    public List<Integer> kahnSort() {
+        int n = graph.getVertices();
+        int[] inDegree = new int[n];
+        
+        // Calculate in-degrees
+        for (int i = 0; i < n; i++) {
+            for (Graph.Edge edge : graph.getAdjacent(i)) {
+                inDegree[edge.to]++;
+            }
+        }
+        
+        metrics.reset();
+        metrics.startTimer();
+        
+        Queue<Integer> queue = new LinkedList<>();
+        for (int i = 0; i < n; i++) {
+            if (inDegree[i] == 0) {
+                queue.offer(i);
+                metrics.recordOperation("QUEUE_PUSH");
+            }
+        }
+        
+        List<Integer> result = new ArrayList<>();
+        
+        while (!queue.isEmpty()) {
+            int current = queue.poll();
+            metrics.recordOperation("QUEUE_POP");
+            result.add(current);
+            
+            for (Graph.Edge edge : graph.getAdjacent(current)) {
+                inDegree[edge.to]--;
+                if (inDegree[edge.to] == 0) {
+                    queue.offer(edge.to);
+                    metrics.recordOperation("QUEUE_PUSH");
+                }
+            }
+        }
+        
+        metrics.stopTimer();
+        
+        if (result.size() != n) {
+            throw new IllegalStateException("Graph has a cycle!");
+        }
+        
+        return result;
+    }
+    
+    /**
+     * DFS-based topological sort.
+     * Time Complexity: O(V + E)
+     */
+    public List<Integer> dfsSort() {
+        int n = graph.getVertices();
+        boolean[] visited = new boolean[n];
+        Stack<Integer> stack = new Stack<>();
+        
+        metrics.reset();
+        metrics.startTimer();
+        
+        for (int i = 0; i < n; i++) {
+            if (!visited[i]) {
+                dfsUtil(i, visited, stack);
+            }
+        }
+        
+        metrics.stopTimer();
+        
+        List<Integer> result = new ArrayList<>();
+        while (!stack.isEmpty()) {
+            result.add(stack.pop());
+        }
+        
+        return result;
+    }
+    
+    private void dfsUtil(int v, boolean[] visited, Stack<Integer> stack) {
+        visited[v] = true;
+        metrics.recordOperation("DFS_VISIT");
+        
+        for (Graph.Edge edge : graph.getAdjacent(v)) {
+            if (!visited[edge.to]) {
+                dfsUtil(edge.to, visited, stack);
+            }
+        }
+        
+        stack.push(v);
+    }
+}
+
+// ===================================================================
+// FILE: src/main/java/graph/dagsp/DAGShortestPath.java
+// Shortest and longest paths in DAG
+// ===================================================================
+package graph.dagsp;
+
+import graph.common.Graph;
+import graph.common.Metrics;
+import graph.topo.TopologicalSort;
+import java.util.*;
+
+/**
+ * Shortest and longest path algorithms for DAGs.
+ * Uses topological ordering for optimal DP solution.
+ */
+public class DAGShortestPath {
+    private final Graph graph;
+    private final Metrics metrics;
+    
+    public static class PathResult {
+        public final int[] distances;
+        public final int[] predecessors;
+        public final int source;
+        
+        public PathResult(int[] distances, int[] predecessors, int source) {
+            this.distances = distances;
+            this.predecessors = predecessors;
+            this.source = source;
+        }
+        
+        public List<Integer> reconstructPath(int target) {
+            if (distances[target] == Integer.MAX_VALUE) {
+                return Collections.emptyList();
+            }
+            
+            List<Integer> path = new ArrayList<>();
+            for (int at = target; at != -1; at = predecessors[at]) {
+                path.add(at);
+            }
+            Collections.reverse(path);
+            return path;
+        }
+    }
+    
+    public DAGShortestPath(Graph graph, Metrics metrics) {
+        this.graph = graph;
+        this.metrics = metrics;
+    }
+    
+    /**
+     * Compute shortest paths from source to all vertices.
+     * Time Complexity: O(V + E)
+     */
+    public PathResult shortestPaths(int source) {
+        int n = graph.getVertices();
+        int[] dist = new int[n];
+        int[] pred = new int[n];
+        Arrays.fill(dist, Integer.MAX_VALUE);
+        Arrays.fill(pred, -1);
+        dist[source] = 0;
+        
+        // Get topological order
+        TopologicalSort topoSort = new TopologicalSort(graph, new graph.common.MetricsImpl());
+        List<Integer> topoOrder = topoSort.dfsSort();
+        
+        metrics.reset();
+        metrics.startTimer();
+        
+        for (int u : topoOrder) {
+            if (dist[u] != Integer.MAX_VALUE) {
+                for (Graph.Edge edge : graph.getAdjacent(u)) {
+                    metrics.recordOperation("RELAXATION");
+                    
+                    if (dist[u] + edge.weight < dist[edge.to]) {
+                        dist[edge.to] = dist[u] + edge.weight;
+                        pred[edge.to] = u;
+                    }
+                }
+            }
+        }
+        
+        metrics.stopTimer();
+        
+        return new PathResult(dist, pred, source);
+    }
+    
+    /**
+     * Compute longest paths (critical path) from source.
+     * Uses negation trick: longest path = -shortest path with negated weights.
+     */
+    public PathResult longestPaths(int source) {
+        int n = graph.getVertices();
+        int[] dist = new int[n];
+        int[] pred = new int[n];
+        Arrays.fill(dist, Integer.MIN_VALUE);
+        Arrays.fill(pred, -1);
+        dist[source] = 0;
+        
+        // Get topological order
+        TopologicalSort topoSort = new TopologicalSort(graph, new graph.common.MetricsImpl());
+        List<Integer> topoOrder = topoSort.dfsSort();
+        
+        metrics.reset();
+        metrics.startTimer();
+        
+        for (int u : topoOrder) {
+            if (dist[u] != Integer.MIN_VALUE) {
+                for (Graph.Edge edge : graph.getAdjacent(u)) {
+                    metrics.recordOperation("RELAXATION");
+                    
+                    if (dist[u] + edge.weight > dist[edge.to]) {
+                        dist[edge.to] = dist[u] + edge.weight;
+                        pred[edge.to] = u;
+                    }
+                }
+            }
+        }
+        
+        metrics.stopTimer();
+        
+        return new PathResult(dist, pred, source);
+    }
+    
+    /**
+     * Find the critical path (longest path in the entire DAG).
+     */
+    public PathResult findCriticalPath() {
+        int n = graph.getVertices();
+        
+        // Try all possible sources
+        PathResult bestResult = null;
+        int maxLength = Integer.MIN_VALUE;
+        
+        for (int source = 0; source < n; source++) {
+            PathResult result = longestPaths(source);
+            
+            for (int target = 0; target < n; target++) {
+                if (result.distances[target] > maxLength) {
+                    maxLength = result.distances[target];
+                    bestResult = result;
+                }
+            }
+        }
+        
+        return bestResult;
+    }
+}
+
+// ===================================================================
+// FILE: src/main/java/Main.java
+// Main application driver
+// ===================================================================
+
+import graph.common.*;
+import graph.scc.TarjanSCC;
+import graph.topo.TopologicalSort;
+import graph.dagsp.DAGShortestPath;
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        System.out.println("=====================================================");
+        System.out.println("  SMART CITY SCHEDULING SYSTEM");
+        System.out.println("  Student: Moldash Sultan");
+        System.out.println("  Date: November 2, 2025");
+        System.out.println("=====================================================\n");
+        
+        // Example with a small cyclic graph
+        runExample1();
+        
+        // Example with a DAG
+        runExample2();
+    }
+    
+    private static void runExample1() {
+        System.out.println("\n=== EXAMPLE 1: Cyclic Graph (City Services) ===\n");
+        
+        // Create graph with cycles
+        Graph graph = new Graph(8);
+        graph.setTaskName(0, "StreetCleaning-A");
+        graph.setTaskName(1, "StreetCleaning-B");
+        graph.setTaskName(2, "StreetCleaning-C");
+        graph.setTaskName(3, "Repair-1");
+        graph.setTaskName(4, "Repair-2");
+        graph.setTaskName(5, "Camera-Check");
+        graph.setTaskName(6, "Sensor-Maint");
+        graph.setTaskName(7, "Report");
+        
+        // Add edges (creating cycles)
+        graph.addEdge(0, 1, 5);
+        graph.addEdge(1, 2, 3);
+        graph.addEdge(2, 0, 2);  // Cycle: 0->1->2->0
+        graph.addEdge(1, 3, 4);
+        graph.addEdge(3, 4, 6);
+        graph.addEdge(4, 5, 2);
+        graph.addEdge(5, 3, 1);  // Cycle: 3->4->5->3
+        graph.addEdge(2, 6, 7);
+        graph.addEdge(6, 7, 3);
+        
+        System.out.printf("Graph: %d vertices, %d edges%n", 
+            graph.getVertices(), graph.getEdgeCount());
+        
+        // Find SCCs
+        Metrics sccMetrics = new MetricsImpl();
+        TarjanSCC tarjan = new TarjanSCC(graph, sccMetrics);
+        List<List<Integer>> sccs = tarjan.findSCCs();
+        
+        System.out.println("\n--- Strongly Connected Components ---");
+        for (int i = 0; i < sccs.size(); i++) {
+            System.out.printf("SCC %d (size %d): ", i, sccs.get(i).size());
+            for (int v : sccs.get(i)) {
+                System.out.print(graph.getTaskName(v) + " ");
+            }
+            System.out.println();
+        }
+        sccMetrics.printSummary();
+        
+        // Build condensation graph
+        Graph condensation = tarjan.buildCondensationGraph(sccs);
+        System.out.printf("%nCondensation DAG: %d components, %d edges%n",
+            condensation.getVertices(), condensation.getEdgeCount());
+        
+        // Topological sort of condensation
+        Metrics topoMetrics = new MetricsImpl();
+        TopologicalSort topoSort = new TopologicalSort(condensation, topoMetrics);
+        List<Integer> topoOrder = topoSort.kahnSort();
+        
+        System.out.println("\n--- Topological Order of SCCs ---");
+        System.out.print("Order: ");
+        for (int sccId : topoOrder) {
+            System.out.print("SCC-" + sccId + " ");
+        }
+        System.out.println();
+        topoMetrics.printSummary();
+    }
+    
+    private static void runExample2() {
+        System.out.println("\n\n=== EXAMPLE 2: DAG (Project Tasks) ===\n");
+        
+        // Create a DAG
+        Graph dag = new Graph(7);
+        dag.setTaskName(0, "Design");
+        dag.setTaskName(1, "Prototype");
+        dag.setTaskName(2, "Testing");
+        dag.setTaskName(3, "Backend");
+        dag.setTaskName(4, "Frontend");
+        dag.setTaskName(5, "Integration");
+        dag.setTaskName(6, "Deployment");
+        
+        dag.addEdge(0, 1, 5);
+        dag.addEdge(0, 3, 8);
+        dag.addEdge(1, 2, 3);
+        dag.addEdge(3, 4, 6);
+        dag.addEdge(4, 5, 4);
+        dag.addEdge(2, 5, 2);
+        dag.addEdge(5, 6, 3);
+        
+        System.out.printf("DAG: %d vertices, %d edges%n", 
+            dag.getVertices(), dag.getEdgeCount());
+        
+        // Shortest paths
+        Metrics spMetrics = new MetricsImpl();
+        DAGShortestPath dagSP = new DAGShortestPath(dag, spMetrics);
+        
+        int source = 0;
+        DAGShortestPath.PathResult shortest = dagSP.shortestPaths(source);
+        
+        System.out.println("\n--- Shortest Paths from " + dag.getTaskName(source) + " ---");
+        for (int i = 0; i < dag.getVertices(); i++) {
+            if (shortest.distances[i] != Integer.MAX_VALUE) {
+                List<Integer> path = shortest.reconstructPath(i);
+                System.out.printf("To %s: distance=%d, path=", 
+                    dag.getTaskName(i), shortest.distances[i]);
+                for (int v : path) {
+                    System.out.print(dag.getTaskName(v) + " ");
+                }
+                System.out.println();
+            }
+        }
+        spMetrics.printSummary();
+        
+        // Longest paths (Critical Path)
+        Metrics lpMetrics = new MetricsImpl();
+        DAGShortestPath dagLP = new DAGShortestPath(dag, lpMetrics);
+        DAGShortestPath.PathResult longest = dagLP.longestPaths(source);
+        
+        System.out.println("\n--- Longest Paths (Critical Path) ---");
+        int maxDist = Integer.MIN_VALUE;
+        int criticalEnd = -1;
+        for (int i = 0; i < dag.getVertices(); i++) {
+            if (longest.distances[i] > maxDist) {
+                maxDist = longest.distances[i];
+                criticalEnd = i;
+            }
+        }
+        
+        List<Integer> criticalPath = longest.reconstructPath(criticalEnd);
+        System.out.printf("Critical Path Length: %d%n", maxDist);
+        System.out.print("Path: ");
+        for (int v : criticalPath) {
+            System.out.print(dag.getTaskName(v) + " ");
+        }
+        System.out.println();
+        lpMetrics.printSummary();
+    }
+}
