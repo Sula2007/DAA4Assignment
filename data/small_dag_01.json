@@ -1,0 +1,20 @@
+{
+  "vertices": 6,
+  "edges": [
+    {"from": 0, "to": 1, "weight": 3},
+    {"from": 0, "to": 2, "weight": 2},
+    {"from": 1, "to": 3, "weight": 4},
+    {"from": 2, "to": 3, "weight": 1},
+    {"from": 2, "to": 4, "weight": 5},
+    {"from": 3, "to": 5, "weight": 2},
+    {"from": 4, "to": 5, "weight": 3}
+  ],
+  "labels": {
+    "0": "InitTask",
+    "1": "DataLoad",
+    "2": "ConfigSetup",
+    "3": "Validation",
+    "4": "CacheWarm",
+    "5": "Complete"
+  }
+}
